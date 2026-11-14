@@ -563,3 +563,180 @@ document.addEventListener('keydown', event => {
 
 setStatus('idle');
 updateButtons();
+
+
+// Demo producer profiles and detailed profile window
+const producerCards = Array.from(document.querySelectorAll('.producer-card'));
+const producerTrackCards = Array.from(document.querySelectorAll('.track-card'));
+const producerSelectionTitle = document.getElementById('producer-selection-title');
+const producerSelectionDescription = document.getElementById('producer-selection-description');
+const showAllTracksButton = document.getElementById('show-all-tracks');
+const profileModal = document.getElementById('producer-modal');
+const profileModalPanel = profileModal?.querySelector('.producer-modal-panel');
+const profileModalTracks = document.getElementById('profile-modal-tracks');
+const profileModalStats = document.getElementById('profile-modal-stats');
+const showProfileTracksButton = document.getElementById('show-profile-tracks');
+let activeProfileId = null;
+let lastProfileTrigger = null;
+
+const producerProfiles = {
+    egor: {
+        name: 'EGOR', initials: 'E', role: 'MAIN PRODUCER', avatar: 'avatar-egor',
+        genres: 'TRAP · HIP-HOP · EXPERIMENTAL',
+        bio: 'A sound built around melodic ideas, heavy drums and experiments with different genres. EGOR brings together atmospheric melodies and energetic rhythm sections to shape a distinctive BEATLAB sound.'
+    },
+    nightwave: {
+        name: 'NIGHTWAVE', initials: 'N', role: 'DEMO PRODUCER', avatar: 'avatar-nightwave',
+        genres: 'DARK TRAP · AMBIENT',
+        bio: 'Atmospheric textures, spacious melodies and late-night moods. This demo profile explores darker harmonies, spacious arrangements and subtle details in sound design.'
+    },
+    ghost: {
+        name: '808 GHOST', initials: '808', role: 'DEMO PRODUCER', avatar: 'avatar-ghost',
+        genres: 'DRILL · TRAP',
+        bio: 'Hard-hitting low end, sharp rhythms and dark urban energy. The 808 GHOST selection focuses on punchy drums, deep bass and tense, minimal arrangements.'
+    },
+    synthx: {
+        name: 'SYNTHX', initials: 'SX', role: 'DEMO PRODUCER', avatar: 'avatar-synthx',
+        genres: 'ELECTRONIC · EXPERIMENTAL',
+        bio: 'Synthetic sound design, unusual textures and futuristic tones. This profile brings together electronic influences and experimental approaches to beatmaking.'
+    }
+};
+
+function getProfileTracks(producerId) {
+    return producerTrackCards.filter(card =>
+        (card.dataset.producers || '').split(',').map(item => item.trim()).includes(producerId)
+    );
+}
+
+function setProducerSelection(producerId) {
+    const profile = producerProfiles[producerId];
+    if (!profile) return;
+    producerCards.forEach(card => {
+        const active = card.dataset.producer === producerId;
+        card.classList.toggle('is-active', active);
+        card.setAttribute('aria-pressed', String(active));
+    });
+    producerTrackCards.forEach(card => {
+        const visible = (card.dataset.producers || '').split(',').map(item => item.trim()).includes(producerId);
+        card.classList.toggle('is-filtered-out', !visible);
+        card.classList.toggle('is-filtered-in', visible);
+    });
+    if (producerSelectionTitle) producerSelectionTitle.innerHTML = `${profile.name} <span>— TRACKS</span>`;
+    if (producerSelectionDescription) producerSelectionDescription.textContent = 'Showing tracks connected to this demo profile.';
+}
+
+function openProducerProfile(producerId, trigger) {
+    const profile = producerProfiles[producerId];
+    if (!profile || !profileModal) return;
+    activeProfileId = producerId;
+    lastProfileTrigger = trigger || document.activeElement;
+    const tracks = getProfileTracks(producerId);
+    const genres = [...new Set(tracks.map(card => card.dataset.genre).filter(Boolean))];
+
+    document.getElementById('profile-modal-role').textContent = profile.role;
+    document.getElementById('profile-modal-name').textContent = profile.name;
+    document.getElementById('profile-modal-genres').textContent = profile.genres;
+    document.getElementById('profile-modal-bio').textContent = profile.bio;
+    document.getElementById('profile-modal-initials').textContent = profile.initials;
+    const avatar = document.getElementById('profile-modal-avatar');
+    avatar.className = `profile-modal-avatar ${profile.avatar}`;
+
+    profileModalStats.innerHTML = '';
+    [
+        { value: String(tracks.length).padStart(2, '0'), label: 'CONNECTED TRACKS' },
+        { value: String(genres.length).padStart(2, '0'), label: 'TRACK STYLES' },
+        { value: 'DEMO', label: 'PROFILE TYPE' }
+    ].forEach(stat => {
+        const item = document.createElement('div');
+        item.className = 'profile-stat';
+        const value = document.createElement('strong');
+        value.textContent = stat.value;
+        const label = document.createElement('span');
+        label.textContent = stat.label;
+        item.append(value, label);
+        profileModalStats.append(item);
+    });
+
+    profileModalTracks.innerHTML = '';
+    tracks.forEach((card, index) => {
+        const item = document.createElement('article');
+        item.className = 'profile-track-item';
+        const image = card.querySelector('.track-cover img');
+        if (image) {
+            const cover = document.createElement('img');
+            cover.src = image.getAttribute('src');
+            cover.alt = '';
+            cover.loading = 'lazy';
+            item.append(cover);
+        }
+        const details = document.createElement('div');
+        details.className = 'profile-track-details';
+        const number = document.createElement('span');
+        number.textContent = `TRACK ${String(index + 1).padStart(2, '0')}`;
+        const title = document.createElement('strong');
+        title.textContent = card.dataset.title || 'UNTITLED';
+        const genre = document.createElement('span');
+        genre.textContent = card.dataset.genre || 'BEAT';
+        details.append(number, title, genre);
+        const play = document.createElement('button');
+        play.type = 'button';
+        play.className = 'profile-track-play';
+        play.textContent = '▶';
+        play.setAttribute('aria-label', `Play ${card.dataset.title || 'track'}`);
+        play.addEventListener('click', () => {
+            closeProducerProfile();
+            card.querySelector('.play-button')?.click();
+        });
+        item.append(details, play);
+        profileModalTracks.append(item);
+    });
+
+    document.getElementById('profile-modal-track-count').textContent = `${tracks.length} TRACK${tracks.length === 1 ? '' : 'S'}`;
+    profileModal.classList.add('is-open');
+    profileModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('profile-modal-open');
+    profileModal.querySelector('.producer-modal-close')?.focus();
+}
+
+function closeProducerProfile() {
+    if (!profileModal) return;
+    profileModal.classList.remove('is-open');
+    profileModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('profile-modal-open');
+    lastProfileTrigger?.focus?.();
+}
+
+function showAllProducerTracks() {
+    producerTrackCards.forEach(card => card.classList.remove('is-filtered-out', 'is-filtered-in'));
+    producerCards.forEach(card => {
+        card.classList.remove('is-active');
+        card.setAttribute('aria-pressed', 'false');
+    });
+    if (producerSelectionTitle) producerSelectionTitle.innerHTML = 'ALL <span>TRACKS</span>';
+    if (producerSelectionDescription) producerSelectionDescription.textContent = 'Showing the complete BEATLAB music collection.';
+}
+
+producerCards.forEach(card => {
+    const activate = () => openProducerProfile(card.dataset.producer, card);
+    card.addEventListener('click', activate);
+    card.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            activate();
+        }
+    });
+});
+
+profileModal?.querySelectorAll('[data-close-profile]').forEach(button =>
+    button.addEventListener('click', closeProducerProfile)
+);
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && profileModal?.classList.contains('is-open')) closeProducerProfile();
+});
+showProfileTracksButton?.addEventListener('click', () => {
+    if (!activeProfileId) return;
+    setProducerSelection(activeProfileId);
+    closeProducerProfile();
+    document.getElementById('music')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+showAllTracksButton?.addEventListener('click', showAllProducerTracks);
